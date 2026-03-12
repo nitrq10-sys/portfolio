@@ -85,10 +85,10 @@
 
     <!-- TAB 2: COST ENTRY -->
     <div id="tab2" class="tab-content">
-        <h3 style="text-align: center; margin-bottom: 20px;">🛍️ Alış Fiyatlarınızı Girin</h3>
+        <h3 style="text-align: center; margin-bottom: 20px;">🛍️ Alış Bilgilerini Girin</h3>
         <table>
             <thead>
-                <tr><th>Varlık</th><th>Alış Fiyatı (₺)</th><th>Güncel Fiyat</th><th>Durum</th></tr>
+                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı (₺)</th><th>Toplam Yatırım</th><th>Güncel Fiyat</th><th>Fark</th></tr>
             </thead>
             <tbody id="cost-table">
             </tbody>
@@ -161,14 +161,19 @@
         possibleAssets.forEach(a => {
             const row = document.createElement('tr');
             row.setAttribute('data-id', a.id);
-            const costPrice = parseFloat(localStorage.getItem('cost_' + a.id)) || 0;
+            const costQty = parseFloat(localStorage.getItem('cost_qty_' + a.id)) || 0;
+            const costPrice = parseFloat(localStorage.getItem('cost_price_' + a.id)) || 0;
             const currentPrice = prices[a.id].toFixed(2);
+            const totalInvested = (costQty * costPrice).toFixed(2);
             const diff = (currentPrice - costPrice).toFixed(2);
             const diffClass = diff > 0 ? 'profit-loss-positive' : (diff < 0 ? 'profit-loss-negative' : '');
             row.innerHTML = `
                 <td>${a.label}</td>
-                <td><input type="number" class="cost-input" value="${costPrice > 0 ? costPrice : ''}" 
-                    oninput="saveCostPrice('${a.id}', this.value)" step="0.01"></td>
+                <td><input type="number" class="cost-qty" value="${costQty > 0 ? costQty : ''}" 
+                    oninput="updateCostRow('${a.id}')" step="0.01" style="width: 60px;"></td>
+                <td><input type="number" class="cost-price" value="${costPrice > 0 ? costPrice : ''}" 
+                    oninput="updateCostRow('${a.id}')" step="0.01" style="width: 80px;"></td>
+                <td>${totalInvested}</td>
                 <td>${currentPrice}</td>
                 <td class="${diffClass}">${diff > 0 ? '+' : ''}${diff}</td>
             `;
@@ -176,8 +181,12 @@
         });
     }
 
-    function saveCostPrice(assetId, value) {
-        localStorage.setItem('cost_' + assetId, value || 0);
+    function updateCostRow(assetId) {
+        const row = document.querySelector(`#cost-table tr[data-id="${assetId}"]`);
+        const qty = parseFloat(row.querySelector('.cost-qty').value) || 0;
+        const price = parseFloat(row.querySelector('.cost-price').value) || 0;
+        localStorage.setItem('cost_qty_' + assetId, qty);
+        localStorage.setItem('cost_price_' + assetId, price);
         buildCostTable();
     }
 
@@ -193,13 +202,13 @@
         let totalInvested = 0, totalValue = 0;
 
         possibleAssets.forEach(a => {
-            const qty = parseFloat(localStorage.getItem('val_' + a.id)) || 0;
-            const costPrice = parseFloat(localStorage.getItem('cost_' + a.id)) || 0;
+            const costQty = parseFloat(localStorage.getItem('cost_qty_' + a.id)) || 0;
+            const costPrice = parseFloat(localStorage.getItem('cost_price_' + a.id)) || 0;
             const currentPrice = prices[a.id];
 
-            if (qty > 0 && costPrice > 0) {
-                const invested = qty * costPrice;
-                const currentVal = qty * currentPrice;
+            if (costQty > 0 && costPrice > 0) {
+                const invested = costQty * costPrice;
+                const currentVal = costQty * currentPrice;
                 const pnl = currentVal - invested;
                 const pnlPercent = ((pnl / invested) * 100).toFixed(2);
                 const pnlClass = pnl > 0 ? 'profit-loss-positive' : (pnl < 0 ? 'profit-loss-negative' : '');
@@ -210,7 +219,7 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${a.label}</td>
-                    <td>${qty}</td>
+                    <td>${costQty}</td>
                     <td>${costPrice.toFixed(2)}</td>
                     <td>${currentPrice.toFixed(2)}</td>
                     <td class="${pnlClass}">${pnl > 0 ? '+' : ''}${pnl.toFixed(2)}</td>
@@ -298,9 +307,16 @@
         possibleAssets.forEach(a => {
             const qty = localStorage.getItem('val_'+a.id);
             const sel = localStorage.getItem('sel_'+a.id);
-            data[a.id] = { qty: qty || 0, selected: sel === 'true', cost: parseFloat(localStorage.getItem('cost_'+a.id)) || 0 };
+            const costQty = localStorage.getItem('cost_qty_'+a.id);
+            const costPrice = localStorage.getItem('cost_price_'+a.id);
+            data[a.id] = { 
+                qty: qty || 0, 
+                selected: sel === 'true',
+                cost_qty: costQty || 0,
+                cost_price: costPrice || 0
+            };
         });
-        const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -319,7 +335,8 @@
                 Object.keys(data).forEach(id => {
                     if(data[id].qty !== undefined) localStorage.setItem('val_'+id, data[id].qty);
                     if(data[id].selected !== undefined) localStorage.setItem('sel_'+id, data[id].selected);
-                    if(data[id].cost !== undefined) localStorage.setItem('cost_'+id, data[id].cost);
+                    if(data[id].cost_qty !== undefined) localStorage.setItem('cost_qty_'+id, data[id].cost_qty);
+                    if(data[id].cost_price !== undefined) localStorage.setItem('cost_price_'+id, data[id].cost_price);
                 });
                 possibleAssets.forEach(a => {
                     const saved = localStorage.getItem('sel_'+a.id);
