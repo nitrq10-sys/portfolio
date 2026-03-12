@@ -189,6 +189,7 @@
         const price = parseFloat(row.querySelector('.cost-price').value) || 0;
         localStorage.setItem('cost_qty_' + assetId, qty);
         localStorage.setItem('cost_price_' + assetId, price);
+        localStorage.setItem('val_' + assetId, qty);  // Portföy adetine eksiz
         updateCostRowDisplay(assetId);
     }
 
@@ -212,7 +213,9 @@
         if (confirm('Bu varlığın alış bilgisini silmek istediğinize emin misiniz?')) {
             localStorage.removeItem('cost_qty_' + assetId);
             localStorage.removeItem('cost_price_' + assetId);
+            localStorage.removeItem('val_' + assetId);  // Portföy adetinden de sil
             buildCostTable();
+            renderTable();  // Portföy tabını güncelle
             renderPnlReport();
         }
     }
