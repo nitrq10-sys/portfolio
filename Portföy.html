@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Altın & Dolar Portföy Takibi</title>
+    <style>
+        /* === DARK THEME STYLES === */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; padding: 20px; color: #e0e0e0; }
+        .container { max-width: 900px; margin: auto; background: #1e1e1e; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.7); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #f1c40f; margin-bottom: 20px; padding-bottom: 10px; }
+        .price-info { background: #2a2a2a; padding: 20px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-around; border: 1px solid #444; }
+        .price-card { text-align: center; }
+        .price-card label { display: block; font-size: 0.8em; color: #f1c40f; font-weight: bold; }
+        .price-card span { font-size: 1.2em; color: #e0e0e0; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 15px; border: 1px solid #333; text-align: left; }
+        th { background-color: #333; color: #f1f1f1; }
+        input[type="number"] { width: 80px; padding: 8px; border: 1px solid #555; border-radius: 4px; background: #2a2a2a; color: #e0e0e0; }
+        input[type="text"] { padding: 6px; border: 1px solid #555; border-radius: 4px; background: #2a2a2a; color: #e0e0e0; }
+        .btn-sync { background: #27ae60; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        .total-box { background: #333; color: #f1c40f; padding: 20px; border-radius: 10px; text-align: right; margin-top: 25px; font-size: 1.8em; font-weight: bold; }
+        .loading { color: #e67e22; font-weight: bold; }
+        .asset-selector { margin-bottom: 15px; }
+        .asset-selector label { margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>💰 Portföy Değer Takibi</h2>
+        <div id="status" style="font-size: 0.8em; color: gray;">Veriler bekleniyor...</div>
+    </div>
+
+    <div class="price-info">
+        <div class="price-card"><label>🇺🇸 DOLAR</label><span id="p-dolar">0.00</span> ₺</div>
+        <div class="price-card"><label>🟡 GRAM (24A)</label><span id="p-gram">0.00</span> ₺</div>
+        <div class="price-card"><label>🔘 ÇEYREK</label><span id="p-ceyrek">0.00</span> ₺</div>
+        <div class="price-card"><label>🇪🇺 EURO</label><span id="p-euro">0.00</span> ₺</div>
+        <div class="price-card"><label>💍 22gr BİLEZİK</label><span id="p-bilezik">0.00</span> ₺</div>
+    </div>
+
+    <!-- Varlık seçici -->
+    <div class="asset-selector" id="asset-selector"></div>
+
+    <table>
+        <thead>
+            <tr><th>Varlık</th><th>Adet</th><th>Birim Fiyat</th><th>Toplam</th></tr>
+        </thead>
+        <tbody id="asset-table">
+        </tbody>
+    </table>
+
+    <button class="btn-sync" onclick="getLivePrices()">🔄 FİYATLARI GÜNCELLE</button>
+
+    <div style="margin-top:20px; display:flex; gap:10px;">
+        <button class="btn-sync" onclick="exportPortfolio()">⬇️ Veriyi Dışa Aktar</button>
+        <input type="file" id="import-file" style="display:none" accept="application/json" onchange="importPortfolio(event)">
+        <button class="btn-sync" onclick="document.getElementById('import-file').click()">⬆️ Veriyi İçe Aktar</button>
+    </div>
+
+    <div class="total-box">TOPLAM: <span id="grand-total">0,00</span> ₺</div>
+</div>
+
+<script>
+    // tanımlı varlıklar; id, etiket ve anahtar fiyat hesaplayıcısı
+    const possibleAssets = [
+        { id: 'ceyrek', label: 'Çeyrek Altın' },
+        { id: 'yarim', label: 'Yarım Altın' },
+        { id: 'tam', label: 'Tam Altın' },
+        { id: 'cumhuriyet', label: 'Cumhuriyet Altın' },
+        { id: 'gram', label: 'Gram Altın' },
+        { id: 'dolar', label: 'ABD Doları' },
+        { id: 'euro', label: 'Euro' },
+        { id: 'bilezik', label: '22gr Bilezik' }
+    ];
+    let prices = { ceyrek:0, yarim:0, tam:0, cumhuriyet:0, gram:0, dolar:0, euro:0, bilezik:0 };
+    // hangi varlıklar gösterilsin
+    let selected = {};
+
+    // 1. Verileri Güvenli Global Kaynaklardan Al (Dolar ve Altın)
+    async function getLivePrices() {
+        const status = document.getElementById('status');
+        status.innerHTML = '<span class="loading">Güncelleniyor...</span>';
+        
+        try {
+            // Dolar Kuru (Exchangerate - Güvenli ve Hızlı)
+            const dRes = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+            const dData = await dRes.json();
+            const usdTry = dData.rates.TRY;
+            const eurPerUsd = dData.rates.EUR;
+
+            // Altın ONS Fiyatı (GoldAPI - Güvenli)
+            const gRes = await fetch('https://api.gold-api.com/price/XAU');
+            const gData = await gRes.json();
+
+            // Hesaplama Mantığı
+            const gram24 = (gData.price / 31.1035) * usdTry; // Ons -> Gram TL
+            const euroTry = (usdTry / eurPerUsd); // 1 EUR
+            
+            prices.dolar = usdTry;
+            prices.euro = euroTry;
+            prices.gram = gram24;
+            prices.ceyrek = gram24 * 1.635; // 1.75 gr 22 ayar karşılığı
+            prices.yarim = prices.ceyrek * 2;
+            prices.tam = prices.ceyrek * 4;
+            prices.cumhuriyet = gram24 * 7.01;
+            prices.bilezik = gram24 * 22 * 0.92; // 22 gram 22 ayar yaklaşık
+
+            updateUI();
+            status.innerText = "Son Güncelleme: " + new Date().toLocaleTimeString();
+        } catch (e) {
+            status.innerText = "Hata! Bağlantınızı kontrol edin.";
+            console.error(e);
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('p-dolar').innerText = prices.dolar.toFixed(2);
+        document.getElementById('p-gram').innerText = Math.round(prices.gram);
+        document.getElementById('p-ceyrek').innerText = Math.round(prices.ceyrek);
+        document.getElementById('p-euro').innerText = prices.euro.toFixed(2);
+        document.getElementById('p-bilezik').innerText = Math.round(prices.bilezik);
+
+        // prices update
+        document.querySelectorAll('#asset-table tr').forEach(row => {
+            const id = row.getAttribute('data-id');
+            row.querySelector('.unit-price').innerText = prices[id].toLocaleString('tr-TR', {maximumFractionDigits:2});
+        });
+        calculate();
+    }
+
+    function calculate() {
+        let grand = 0;
+        document.querySelectorAll('#asset-table tr').forEach(row => {
+            const id = row.getAttribute('data-id');
+            const qty = parseFloat(row.querySelector('input').value) || 0;
+            const sub = qty * prices[id];
+            row.querySelector('.sub-total').innerText = sub.toLocaleString('tr-TR', {maximumFractionDigits:2});
+            grand += sub;
+            localStorage.setItem('val_'+id, qty); // ADETLERİ KAYDET
+        });
+        document.getElementById('grand-total').innerText = grand.toLocaleString('tr-TR', {maximumFractionDigits:2});
+    }
+
+    // CSV/JSON export-import helpers to share between devices
+    function exportPortfolio() {
+        const data = {};
+        possibleAssets.forEach(a => {
+            const qty = localStorage.getItem('val_'+a.id);
+            const sel = localStorage.getItem('sel_'+a.id);
+            if(qty !== null || sel !== null) {
+                data[a.id] = { qty: qty || 0, selected: sel === 'true' };
+            }
+        });
+        const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'portfolio.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function importPortfolio(event) {
+        const file = event.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const data = JSON.parse(e.target.result);
+                Object.keys(data).forEach(id => {
+                    if(data[id].qty !== undefined) localStorage.setItem('val_'+id, data[id].qty);
+                    if(data[id].selected !== undefined) localStorage.setItem('sel_'+id, data[id].selected);
+                });
+                // rebuild UI after import
+                possibleAssets.forEach(a => {
+                    const saved = localStorage.getItem('sel_'+a.id);
+                    if(saved !== null) selected[a.id] = saved === 'true';
+                });
+                buildAssetSelector();
+                renderTable();
+                calculate();
+                alert('İçe aktarım tamamlandı');
+            } catch(err) {
+                alert('Dosya okunurken hata: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+        // reset input
+        event.target.value = '';
+    }
+
+    // Sayfa açıldığında adetleri yükle ve fiyatları çek
+    function buildAssetSelector() {
+        const container = document.getElementById('asset-selector');
+        container.innerHTML = '';
+        possibleAssets.forEach(a => {
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.id = 'chk-'+a.id;
+            chk.checked = selected[a.id] !== false;
+            chk.onchange = () => {
+                selected[a.id] = chk.checked;
+                renderTable();
+            };
+            const lbl = document.createElement('label');
+            lbl.htmlFor = chk.id;
+            lbl.innerText = a.label;
+            container.appendChild(chk);
+            container.appendChild(lbl);
+        });
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('asset-table');
+        tbody.innerHTML = '';
+        possibleAssets.forEach(a => {
+            if (selected[a.id] === false) return;
+            const row = document.createElement('tr');
+            row.setAttribute('data-id', a.id);
+            row.innerHTML = `<td>${a.label}</td><td><input type="number" oninput="calculate()"></td><td class="unit-price">0</td><td class="sub-total">0</td>`;
+            tbody.appendChild(row);
+        });
+        // restore quantities
+        document.querySelectorAll('#asset-table tr').forEach(row => {
+            const id = row.getAttribute('data-id');
+            const saved = localStorage.getItem('val_'+id);
+            if(saved) row.querySelector('input').value = saved;
+        });
+    }
+
+    window.onload = () => {
+        // load selection state
+        possibleAssets.forEach(a => {
+            const saved = localStorage.getItem('sel_'+a.id);
+            if(saved !== null) selected[a.id] = saved === 'true';
+        });
+        buildAssetSelector();
+        renderTable();
+        getLivePrices();
+    };
+
+    // onunchange handler to remember selections
+    document.addEventListener('change', e => {
+        if(e.target && e.target.id && e.target.id.startsWith('chk-')){
+            const id = e.target.id.slice(4);
+            localStorage.setItem('sel_'+id, e.target.checked);
+        }
+    });
+</script>
+</body>
+</html>
