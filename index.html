@@ -90,7 +90,7 @@
         <h3 style="text-align: center; margin-bottom: 20px;">🛍️ Alış Bilgilerini Girin</h3>
         <table>
             <thead>
-                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı (₺)</th><th>Toplam Yatırım</th><th>Güncel Fiyat</th><th>Fark</th><th>İşlem</th></tr>
+                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı (₺)</th><th>Toplam Yatırım</th><th>Güncel Fiyat</th><th>Fark</th></tr>
             </thead>
             <tbody id="cost-table">
             </tbody>
@@ -121,7 +121,7 @@
         </div>
         <table>
             <thead>
-                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı</th><th>Güncel Fiyat</th><th>Kar/Zarar</th><th>%</th></tr>
+                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı</th><th>Güncel Fiyat</th><th>Kar/Zarar</th><th>%</th><th>İşlem</th></tr>
             </thead>
             <tbody id="pnl-table">
             </tbody>
@@ -178,7 +178,6 @@
                 <td>${totalInvested}</td>
                 <td>${currentPrice}</td>
                 <td class="${diffClass}">${diff > 0 ? '+' : ''}${diff}</td>
-                <td><button class="btn-delete" onclick="deleteCostEntry('${a.id}')">🗑️</button></td>
             `;
             tbody.appendChild(row);
         });
@@ -245,6 +244,7 @@
                 totalValue += currentVal;
 
                 const row = document.createElement('tr');
+                row.setAttribute('data-id', a.id);
                 row.innerHTML = `
                     <td>${a.label}</td>
                     <td>${costQty}</td>
@@ -252,6 +252,7 @@
                     <td>${currentPrice.toFixed(2)}</td>
                     <td class="${pnlClass}">${pnl > 0 ? '+' : ''}${pnl.toFixed(2)}</td>
                     <td class="${pnlClass}">${pnlPercent > 0 ? '+' : ''}${pnlPercent}%</td>
+                    <td><button class="btn-delete" onclick="deleteCostEntry('${a.id}')">🗑️</button></td>
                 `;
                 tbody.appendChild(row);
             }
