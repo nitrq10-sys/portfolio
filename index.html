@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Altın & Dolar Portföy Takibi</title>
+    <script type="module" src="firebase-config.js"></script>
     <style>
         /* === DARK THEME STYLES === */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; padding: 20px; color: #e0e0e0; }
@@ -35,11 +36,20 @@
         .profit-loss-positive { color: #27ae60; font-weight: bold; }
         .profit-loss-negative { color: #e74c3c; font-weight: bold; }
         .summary-box { background: #2a2a2a; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #444; }
+        .user-info { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 20px; padding: 12px; background: #2a2a2a; border-radius: 8px; }
+        .user-email { color: #f1c40f; font-weight: bold; }
+        .btn-logout { background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-logout:hover { background: #c0392b; }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <div class="user-info" id="user-info">
+        <span class="user-email" id="user-email"></span>
+        <button class="btn-logout" onclick="logout()">🚪 Çıkış</button>
+    </div>
+    
     <div class="header">
         <h2>💰 Portföy Değer Takibi</h2>
         <div id="status" style="font-size: 0.8em; color: gray;">Veriler bekleniyor...</div>
@@ -230,6 +240,7 @@
         renderTable();
         renderPnlReport();
         alert('✅ İşlem eklendi!');
+        saveToFirebase();
     }
 
     function buildCostTable() {
@@ -276,6 +287,7 @@
             buildCostTable();
             renderTable();
             renderPnlReport();
+            saveToFirebase();
         }
     }
 
@@ -387,6 +399,7 @@
             localStorage.setItem('val_'+id, qty);
         });
         document.getElementById('grand-total').innerText = grand.toLocaleString('tr-TR', {maximumFractionDigits:2});
+        saveToFirebase();
     }
 
     function exportPortfolio() {
@@ -439,6 +452,7 @@
                 calculate();
                 renderPnlReport();
                 alert('✅ İçe aktarım tamamlandı');
+                saveToFirebase();
             } catch(err) {
                 alert('❌ Hata: ' + err.message);
             }
@@ -485,6 +499,15 @@
     }
 
     window.onload = () => {
+        // Kullanıcı emailini göster
+        const emailElement = document.getElementById('user-email');
+        if (emailElement) {
+            // Biraz gecikme ile Firebase yüklendikten sonra göster
+            setTimeout(() => {
+                emailElement.textContent = '👤 ' + getCurrentUserEmail();
+            }, 500);
+        }
+
         possibleAssets.forEach(a => {
             const saved = localStorage.getItem('sel_'+a.id);
             if(saved !== null) selected[a.id] = saved === 'true';
