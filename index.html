@@ -22,6 +22,8 @@
         .loading { color: #e67e22; font-weight: bold; }
         .asset-selector { margin-bottom: 15px; }
         .asset-selector label { margin-right: 10px; }
+        .btn-delete { background: #e74c3c; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+        .btn-delete:hover { background: #c0392b; }
         /* TAB STYLES */
         .tab-container { margin-bottom: 20px; }
         .tab-buttons { display: flex; gap: 10px; border-bottom: 2px solid #444; }
@@ -88,7 +90,7 @@
         <h3 style="text-align: center; margin-bottom: 20px;">🛍️ Alış Bilgilerini Girin</h3>
         <table>
             <thead>
-                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı (₺)</th><th>Toplam Yatırım</th><th>Güncel Fiyat</th><th>Fark</th></tr>
+                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı (₺)</th><th>Toplam Yatırım</th><th>Güncel Fiyat</th><th>Fark</th><th>İşlem</th></tr>
             </thead>
             <tbody id="cost-table">
             </tbody>
@@ -170,12 +172,13 @@
             row.innerHTML = `
                 <td>${a.label}</td>
                 <td><input type="number" class="cost-qty" value="${costQty > 0 ? costQty : ''}" 
-                    oninput="updateCostRow('${a.id}')" step="0.01" style="width: 60px;"></td>
+                    onchange="updateCostRow('${a.id}')" step="0.01" style="width: 60px;"></td>
                 <td><input type="number" class="cost-price" value="${costPrice > 0 ? costPrice : ''}" 
-                    oninput="updateCostRow('${a.id}')" step="0.01" style="width: 80px;"></td>
+                    onchange="updateCostRow('${a.id}')" step="0.01" style="width: 80px;"></td>
                 <td>${totalInvested}</td>
                 <td>${currentPrice}</td>
                 <td class="${diffClass}">${diff > 0 ? '+' : ''}${diff}</td>
+                <td><button class="btn-delete" onclick="deleteCostEntry('${a.id}')">🗑️</button></td>
             `;
             tbody.appendChild(row);
         });
@@ -187,7 +190,32 @@
         const price = parseFloat(row.querySelector('.cost-price').value) || 0;
         localStorage.setItem('cost_qty_' + assetId, qty);
         localStorage.setItem('cost_price_' + assetId, price);
-        buildCostTable();
+        updateCostRowDisplay(assetId);
+    }
+
+    function updateCostRowDisplay(assetId) {
+        const row = document.querySelector(`#cost-table tr[data-id="${assetId}"]`);
+        if (!row) return;
+        const costQty = parseFloat(localStorage.getItem('cost_qty_' + assetId)) || 0;
+        const costPrice = parseFloat(localStorage.getItem('cost_price_' + assetId)) || 0;
+        const currentPrice = prices[assetId].toFixed(2);
+        const totalInvested = (costQty * costPrice).toFixed(2);
+        const diff = (currentPrice - costPrice).toFixed(2);
+        const diffClass = diff > 0 ? 'profit-loss-positive' : (diff < 0 ? 'profit-loss-negative' : '');
+        
+        row.cells[3].innerText = totalInvested;
+        row.cells[4].innerText = currentPrice;
+        row.cells[5].className = diffClass;
+        row.cells[5].innerText = (diff > 0 ? '+' : '') + diff;
+    }
+
+    function deleteCostEntry(assetId) {
+        if (confirm('Bu varlığın alış bilgisini silmek istediğinize emin misiniz?')) {
+            localStorage.removeItem('cost_qty_' + assetId);
+            localStorage.removeItem('cost_price_' + assetId);
+            buildCostTable();
+            renderPnlReport();
+        }
     }
 
     function updateCostDisplay() {
