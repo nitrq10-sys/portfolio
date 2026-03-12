@@ -252,7 +252,7 @@
                 <td>${totalInvested}</td>
                 <td>${currentPrice}</td>
                 <td class="${diffClass}">${diff > 0 ? '+' : ''}${diff}</td>
-                <td><button class="btn-delete" onclick="deleteSingleCostEntry(${entry.id})">${entry.date}</button></td>
+                <td style="display: flex; align-items: center; gap: 10px;">${entry.date} <button class="btn-delete" onclick="deleteSingleCostEntry(${entry.id})" title="Sil">🗑️</button></td>
             `;
             tbody.appendChild(row);
         });
