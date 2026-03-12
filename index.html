@@ -22,6 +22,17 @@
         .loading { color: #e67e22; font-weight: bold; }
         .asset-selector { margin-bottom: 15px; }
         .asset-selector label { margin-right: 10px; }
+        /* TAB STYLES */
+        .tab-container { margin-bottom: 20px; }
+        .tab-buttons { display: flex; gap: 10px; border-bottom: 2px solid #444; }
+        .tab-btn { background: #2a2a2a; border: none; padding: 12px 20px; color: #e0e0e0; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s; font-weight: bold; }
+        .tab-btn:hover { background: #333; }
+        .tab-btn.active { border-bottom-color: #f1c40f; color: #f1c40f; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .profit-loss-positive { color: #27ae60; font-weight: bold; }
+        .profit-loss-negative { color: #e74c3c; font-weight: bold; }
+        .summary-box { background: #2a2a2a; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #444; }
     </style>
 </head>
 <body>
@@ -32,34 +43,89 @@
         <div id="status" style="font-size: 0.8em; color: gray;">Veriler bekleniyor...</div>
     </div>
 
-    <div class="price-info">
-        <div class="price-card"><label>🇺🇸 DOLAR</label><span id="p-dolar">0.00</span> ₺</div>
-        <div class="price-card"><label>🟡 GRAM (24A)</label><span id="p-gram">0.00</span> ₺</div>
-        <div class="price-card"><label>🔘 ÇEYREK</label><span id="p-ceyrek">0.00</span> ₺</div>
-        <div class="price-card"><label>🇪🇺 EURO</label><span id="p-euro">0.00</span> ₺</div>
-        <div class="price-card"><label>💍 22gr BİLEZİK</label><span id="p-bilezik">0.00</span> ₺</div>
+    <!-- TAB NAVIGATION -->
+    <div class="tab-container">
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="switchTab('tab1')">📊 Portföy</button>
+            <button class="tab-btn" onclick="switchTab('tab2')">💵 Alış Fiyatları</button>
+            <button class="tab-btn" onclick="switchTab('tab3')">📈 Kar/Zarar</button>
+        </div>
     </div>
 
-    <!-- Varlık seçici -->
-    <div class="asset-selector" id="asset-selector"></div>
+    <!-- TAB 1: PORTFOLIO -->
+    <div id="tab1" class="tab-content active">
+        <div class="price-info">
+            <div class="price-card"><label>🇺🇸 DOLAR</label><span id="p-dolar">0.00</span> ₺</div>
+            <div class="price-card"><label>🟡 GRAM (24A)</label><span id="p-gram">0.00</span> ₺</div>
+            <div class="price-card"><label>🔘 ÇEYREK</label><span id="p-ceyrek">0.00</span> ₺</div>
+            <div class="price-card"><label>🇪🇺 EURO</label><span id="p-euro">0.00</span> ₺</div>
+            <div class="price-card"><label>💍 GRAM(22)</label><span id="p-bilezik">0.00</span> ₺</div>
+        </div>
 
-    <table>
-        <thead>
-            <tr><th>Varlık</th><th>Adet</th><th>Birim Fiyat</th><th>Toplam</th></tr>
-        </thead>
-        <tbody id="asset-table">
-        </tbody>
-    </table>
+        <div class="asset-selector" id="asset-selector"></div>
 
-    <button class="btn-sync" onclick="getLivePrices()">🔄 FİYATLARI GÜNCELLE</button>
+        <table>
+            <thead>
+                <tr><th>Varlık</th><th>Adet</th><th>Birim Fiyat</th><th>Toplam</th></tr>
+            </thead>
+            <tbody id="asset-table">
+            </tbody>
+        </table>
 
-    <div style="margin-top:20px; display:flex; gap:10px;">
-        <button class="btn-sync" onclick="exportPortfolio()">⬇️ Veriyi Dışa Aktar</button>
-        <input type="file" id="import-file" style="display:none" accept="application/json" onchange="importPortfolio(event)">
-        <button class="btn-sync" onclick="document.getElementById('import-file').click()">⬆️ Veriyi İçe Aktar</button>
+        <button class="btn-sync" onclick="getLivePrices()">🔄 FİYATLARI GÜNCELLE</button>
+
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button class="btn-sync" onclick="exportPortfolio()">⬇️ Veriyi Dışa Aktar</button>
+            <input type="file" id="import-file" style="display:none" accept="application/json" onchange="importPortfolio(event)">
+            <button class="btn-sync" onclick="document.getElementById('import-file').click()">⬆️ Veriyi İçe Aktar</button>
+        </div>
+
+        <div class="total-box">TOPLAM: <span id="grand-total">0,00</span> ₺</div>
     </div>
 
-    <div class="total-box">TOPLAM: <span id="grand-total">0,00</span> ₺</div>
+    <!-- TAB 2: COST ENTRY -->
+    <div id="tab2" class="tab-content">
+        <h3 style="text-align: center; margin-bottom: 20px;">🛍️ Alış Fiyatlarınızı Girin</h3>
+        <table>
+            <thead>
+                <tr><th>Varlık</th><th>Alış Fiyatı (₺)</th><th>Güncel Fiyat</th><th>Durum</th></tr>
+            </thead>
+            <tbody id="cost-table">
+            </tbody>
+        </table>
+        <button class="btn-sync" onclick="updateCostDisplay()">✅ Kaydet</button>
+    </div>
+
+    <!-- TAB 3: PROFIT/LOSS -->
+    <div id="tab3" class="tab-content">
+        <h3 style="text-align: center; margin-bottom: 20px;">📊 Kar/Zarar Analizi</h3>
+        <div style="margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+            <div class="summary-box">
+                <label>Toplam Yatırım</label>
+                <div style="font-size: 1.5em; color: #f1c40f; font-weight: bold;" id="total-invested">0,00 ₺</div>
+            </div>
+            <div class="summary-box">
+                <label>Güncel Değer</label>
+                <div style="font-size: 1.5em; color: #f1c40f; font-weight: bold;" id="total-value">0,00 ₺</div>
+            </div>
+            <div class="summary-box">
+                <label>Kar/Zarar</label>
+                <div style="font-size: 1.5em; font-weight: bold;" id="total-pnl">0,00 ₺</div>
+            </div>
+            <div class="summary-box">
+                <label>% Değişim</label>
+                <div style="font-size: 1.5em; font-weight: bold;" id="total-percent">0.00%</div>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı</th><th>Güncel Fiyat</th><th>Kar/Zarar</th><th>%</th></tr>
+            </thead>
+            <tbody id="pnl-table">
+            </tbody>
+        </table>
+    </div>
+
 </div>
 
 <script>
@@ -75,8 +141,94 @@
         { id: 'bilezik', label: 'Gram Altın(22)' }
     ];
     let prices = { ceyrek:0, yarim:0, tam:0, cumhuriyet:0, gram:0, dolar:0, euro:0, bilezik:0 };
-    // hangi varlıklar gösterilsin
     let selected = {};
+
+    // TAB SWITCHING
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(tabName).classList.add('active');
+        event.target.classList.add('active');
+
+        if (tabName === 'tab2') buildCostTable();
+        if (tabName === 'tab3') renderPnlReport();
+    }
+
+    // TAB 2: COST ENTRY
+    function buildCostTable() {
+        const tbody = document.getElementById('cost-table');
+        tbody.innerHTML = '';
+        possibleAssets.forEach(a => {
+            const row = document.createElement('tr');
+            row.setAttribute('data-id', a.id);
+            const costPrice = parseFloat(localStorage.getItem('cost_' + a.id)) || 0;
+            const currentPrice = prices[a.id].toFixed(2);
+            const diff = (currentPrice - costPrice).toFixed(2);
+            const diffClass = diff > 0 ? 'profit-loss-positive' : (diff < 0 ? 'profit-loss-negative' : '');
+            row.innerHTML = `
+                <td>${a.label}</td>
+                <td><input type="number" class="cost-input" value="${costPrice > 0 ? costPrice : ''}" 
+                    oninput="saveCostPrice('${a.id}', this.value)" step="0.01"></td>
+                <td>${currentPrice}</td>
+                <td class="${diffClass}">${diff > 0 ? '+' : ''}${diff}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    function saveCostPrice(assetId, value) {
+        localStorage.setItem('cost_' + assetId, value || 0);
+        buildCostTable();
+    }
+
+    function updateCostDisplay() {
+        alert('✅ Alış fiyatları kaydedildi!');
+        buildCostTable();
+    }
+
+    // TAB 3: PROFIT/LOSS REPORT
+    function renderPnlReport() {
+        const tbody = document.getElementById('pnl-table');
+        tbody.innerHTML = '';
+        let totalInvested = 0, totalValue = 0;
+
+        possibleAssets.forEach(a => {
+            const qty = parseFloat(localStorage.getItem('val_' + a.id)) || 0;
+            const costPrice = parseFloat(localStorage.getItem('cost_' + a.id)) || 0;
+            const currentPrice = prices[a.id];
+
+            if (qty > 0 && costPrice > 0) {
+                const invested = qty * costPrice;
+                const currentVal = qty * currentPrice;
+                const pnl = currentVal - invested;
+                const pnlPercent = ((pnl / invested) * 100).toFixed(2);
+                const pnlClass = pnl > 0 ? 'profit-loss-positive' : (pnl < 0 ? 'profit-loss-negative' : '');
+
+                totalInvested += invested;
+                totalValue += currentVal;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${a.label}</td>
+                    <td>${qty}</td>
+                    <td>${costPrice.toFixed(2)}</td>
+                    <td>${currentPrice.toFixed(2)}</td>
+                    <td class="${pnlClass}">${pnl > 0 ? '+' : ''}${pnl.toFixed(2)}</td>
+                    <td class="${pnlClass}">${pnlPercent > 0 ? '+' : ''}${pnlPercent}%</td>
+                `;
+                tbody.appendChild(row);
+            }
+        });
+
+        const totalPnl = totalValue - totalInvested;
+        const totalPercent = totalInvested > 0 ? ((totalPnl / totalInvested) * 100).toFixed(2) : 0;
+        const totalPnlClass = totalPnl > 0 ? 'profit-loss-positive' : (totalPnl < 0 ? 'profit-loss-negative' : '');
+
+        document.getElementById('total-invested').innerText = totalInvested.toLocaleString('tr-TR', {maximumFractionDigits:2}) + ' ₺';
+        document.getElementById('total-value').innerText = totalValue.toLocaleString('tr-TR', {maximumFractionDigits:2}) + ' ₺';
+        document.getElementById('total-pnl').innerHTML = `<span class="${totalPnlClass}">${totalPnl > 0 ? '+' : ''}${totalPnl.toLocaleString('tr-TR', {maximumFractionDigits:2})} ₺</span>`;
+        document.getElementById('total-percent').innerHTML = `<span class="${totalPnlClass}">${totalPercent > 0 ? '+' : ''}${totalPercent}%</span>`;
+    }
 
     // 1. Verileri Güvenli Global Kaynaklardan Al (Dolar ve Altın)
     async function getLivePrices() {
@@ -84,30 +236,29 @@
         status.innerHTML = '<span class="loading">Güncelleniyor...</span>';
         
         try {
-            // Dolar Kuru (Exchangerate - Güvenli ve Hızlı)
             const dRes = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
             const dData = await dRes.json();
             const usdTry = dData.rates.TRY;
             const eurPerUsd = dData.rates.EUR;
 
-            // Altın ONS Fiyatı (GoldAPI - Güvenli)
             const gRes = await fetch('https://api.gold-api.com/price/XAU');
             const gData = await gRes.json();
 
-            // Hesaplama Mantığı
-            const gram24 = (gData.price / 31.1035) * usdTry; // Ons -> Gram TL
-            const euroTry = (usdTry / eurPerUsd); // 1 EUR
+            const gram24 = (gData.price / 31.1035) * usdTry;
+            const euroTry = (usdTry / eurPerUsd);
             
             prices.dolar = usdTry;
             prices.euro = euroTry;
             prices.gram = gram24;
-            prices.ceyrek = gram24 * 1.635; // 1.75 gr 22 ayar karşılığı
+            prices.ceyrek = gram24 * 1.635;
             prices.yarim = prices.ceyrek * 2;
             prices.tam = prices.ceyrek * 4;
             prices.cumhuriyet = gram24 * 7.01;
-            prices.bilezik = gram24 * 0.92; // 1 gram 22 ayar bilezik
+            prices.bilezik = gram24 * 0.92;
 
             updateUI();
+            if (document.getElementById('tab2').classList.contains('active')) buildCostTable();
+            if (document.getElementById('tab3').classList.contains('active')) renderPnlReport();
             status.innerText = "Son Güncelleme: " + new Date().toLocaleTimeString();
         } catch (e) {
             status.innerText = "Hata! Bağlantınızı kontrol edin.";
@@ -122,7 +273,6 @@
         document.getElementById('p-euro').innerText = prices.euro.toFixed(2);
         document.getElementById('p-bilezik').innerText = Math.round(prices.bilezik);
 
-        // prices update
         document.querySelectorAll('#asset-table tr').forEach(row => {
             const id = row.getAttribute('data-id');
             row.querySelector('.unit-price').innerText = prices[id].toLocaleString('tr-TR', {maximumFractionDigits:2});
@@ -138,20 +288,17 @@
             const sub = qty * prices[id];
             row.querySelector('.sub-total').innerText = sub.toLocaleString('tr-TR', {maximumFractionDigits:2});
             grand += sub;
-            localStorage.setItem('val_'+id, qty); // ADETLERİ KAYDET
+            localStorage.setItem('val_'+id, qty);
         });
         document.getElementById('grand-total').innerText = grand.toLocaleString('tr-TR', {maximumFractionDigits:2});
     }
 
-    // CSV/JSON export-import helpers to share between devices
     function exportPortfolio() {
         const data = {};
         possibleAssets.forEach(a => {
             const qty = localStorage.getItem('val_'+a.id);
             const sel = localStorage.getItem('sel_'+a.id);
-            if(qty !== null || sel !== null) {
-                data[a.id] = { qty: qty || 0, selected: sel === 'true' };
-            }
+            data[a.id] = { qty: qty || 0, selected: sel === 'true', cost: parseFloat(localStorage.getItem('cost_'+a.id)) || 0 };
         });
         const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
@@ -172,8 +319,8 @@
                 Object.keys(data).forEach(id => {
                     if(data[id].qty !== undefined) localStorage.setItem('val_'+id, data[id].qty);
                     if(data[id].selected !== undefined) localStorage.setItem('sel_'+id, data[id].selected);
+                    if(data[id].cost !== undefined) localStorage.setItem('cost_'+id, data[id].cost);
                 });
-                // rebuild UI after import
                 possibleAssets.forEach(a => {
                     const saved = localStorage.getItem('sel_'+a.id);
                     if(saved !== null) selected[a.id] = saved === 'true';
@@ -181,17 +328,15 @@
                 buildAssetSelector();
                 renderTable();
                 calculate();
-                alert('İçe aktarım tamamlandı');
+                alert('✅ İçe aktarım tamamlandı');
             } catch(err) {
-                alert('Dosya okunurken hata: ' + err.message);
+                alert('❌ Hata: ' + err.message);
             }
         };
         reader.readAsText(file);
-        // reset input
         event.target.value = '';
     }
 
-    // Sayfa açıldığında adetleri yükle ve fiyatları çek
     function buildAssetSelector() {
         const container = document.getElementById('asset-selector');
         container.innerHTML = '';
@@ -222,7 +367,6 @@
             row.innerHTML = `<td>${a.label}</td><td><input type="number" oninput="calculate()"></td><td class="unit-price">0</td><td class="sub-total">0</td>`;
             tbody.appendChild(row);
         });
-        // restore quantities
         document.querySelectorAll('#asset-table tr').forEach(row => {
             const id = row.getAttribute('data-id');
             const saved = localStorage.getItem('val_'+id);
@@ -231,7 +375,6 @@
     }
 
     window.onload = () => {
-        // load selection state
         possibleAssets.forEach(a => {
             const saved = localStorage.getItem('sel_'+a.id);
             if(saved !== null) selected[a.id] = saved === 'true';
@@ -241,7 +384,6 @@
         getLivePrices();
     };
 
-    // onunchange handler to remember selections
     document.addEventListener('change', e => {
         if(e.target && e.target.id && e.target.id.startsWith('chk-')){
             const id = e.target.id.slice(4);
