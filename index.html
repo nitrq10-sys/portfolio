@@ -87,15 +87,33 @@
 
     <!-- TAB 2: COST ENTRY -->
     <div id="tab2" class="tab-content">
-        <h3 style="text-align: center; margin-bottom: 20px;">🛍️ Alış Bilgilerini Girin</h3>
+        <h3 style="text-align: center; margin-bottom: 20px;">🛍️ Yeni Alış İşlemi Ekle</h3>
+        <div style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end;">
+            <div>
+                <label style="color: #f1c40f;">Varlık</label>
+                <select id="cost-asset-select" style="width: 100%; padding: 8px; border: 1px solid #555; border-radius: 4px; background: #2a2a2a; color: #e0e0e0;">
+                    <option value="">Seçiniz...</option>
+                </select>
+            </div>
+            <div>
+                <label style="color: #f1c40f;">Adet</label>
+                <input type="number" id="cost-new-qty" placeholder="Adet" style="width: 100%; padding: 8px; border: 1px solid #555; border-radius: 4px; background: #2a2a2a; color: #e0e0e0;" step="0.01">
+            </div>
+            <div>
+                <label style="color: #f1c40f;">Alış Fiyatı (₺)</label>
+                <input type="number" id="cost-new-price" placeholder="Fiyat" style="width: 100%; padding: 8px; border: 1px solid #555; border-radius: 4px; background: #2a2a2a; color: #e0e0e0;" step="0.01">
+            </div>
+            <button class="btn-sync" onclick="addCostEntry()" style="width: auto; padding: 8px 15px; margin-top: 20px;">➕ Ekle</button>
+        </div>
+
+        <h4 style="color: #f1c40f; margin-top: 20px;">Alış İşlemleri</h4>
         <table>
             <thead>
-                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı (₺)</th><th>Toplam Yatırım</th><th>Güncel Fiyat</th><th>Fark</th></tr>
+                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı (₺)</th><th>Toplam Yatırım</th><th>Güncel Fiyat</th><th>Fark</th><th>İşlem</th></tr>
             </thead>
             <tbody id="cost-table">
             </tbody>
         </table>
-        <button class="btn-sync" onclick="updateCostDisplay()">✅ Kaydet</button>
     </div>
 
     <!-- TAB 3: PROFIT/LOSS -->
@@ -121,7 +139,7 @@
         </div>
         <table>
             <thead>
-                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı</th><th>Güncel Fiyat</th><th>Kar/Zarar</th><th>%</th><th>İşlem</th></tr>
+                <tr><th>Varlık</th><th>Adet</th><th>Alış Fiyatı</th><th>Güncel Fiyat</th><th>Kar/Zarar</th><th>%</th><th>Tarih</th></tr>
             </thead>
             <tbody id="pnl-table">
             </tbody>
@@ -145,6 +163,16 @@
     let prices = { ceyrek:0, yarim:0, tam:0, cumhuriyet:0, gram:0, dolar:0, euro:0, bilezik:0 };
     let selected = {};
 
+    // Alış işlemleri için JSON array
+    function getCostEntries() {
+        const data = localStorage.getItem('cost_entries');
+        return data ? JSON.parse(data) : [];
+    }
+
+    function saveCostEntries(entries) {
+        localStorage.setItem('cost_entries', JSON.stringify(entries));
+    }
+
     // TAB SWITCHING
     function switchTab(tabName) {
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
@@ -157,65 +185,96 @@
     }
 
     // TAB 2: COST ENTRY
+    function buildCostAssetSelect() {
+        const select = document.getElementById('cost-asset-select');
+        select.innerHTML = '<option value="">Seçiniz...</option>';
+        possibleAssets.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.innerText = a.label;
+            select.appendChild(opt);
+        });
+    }
+
+    function addCostEntry() {
+        const assetId = document.getElementById('cost-asset-select').value;
+        const qty = parseFloat(document.getElementById('cost-new-qty').value);
+        const price = parseFloat(document.getElementById('cost-new-price').value);
+
+        if (!assetId || !qty || !price || qty <= 0 || price <= 0) {
+            alert('❌ Lütfen tüm alanları doğru doldurun');
+            return;
+        }
+
+        // Yeni işlemi ekle
+        const entries = getCostEntries();
+        entries.push({
+            id: Date.now(),
+            asset: assetId,
+            qty: qty,
+            price: price,
+            date: new Date().toLocaleDateString('tr-TR')
+        });
+        saveCostEntries(entries);
+
+        // Portföy adetine topla
+        const currentPortQty = parseFloat(localStorage.getItem('val_' + assetId)) || 0;
+        localStorage.setItem('val_' + assetId, currentPortQty + qty);
+
+        // Formu temizle
+        document.getElementById('cost-asset-select').value = '';
+        document.getElementById('cost-new-qty').value = '';
+        document.getElementById('cost-new-price').value = '';
+
+        buildCostTable();
+        renderTable();
+        renderPnlReport();
+        alert('✅ İşlem eklendi!');
+    }
+
     function buildCostTable() {
         const tbody = document.getElementById('cost-table');
         tbody.innerHTML = '';
-        possibleAssets.forEach(a => {
-            const row = document.createElement('tr');
-            row.setAttribute('data-id', a.id);
-            const costQty = parseFloat(localStorage.getItem('cost_qty_' + a.id)) || 0;
-            const costPrice = parseFloat(localStorage.getItem('cost_price_' + a.id)) || 0;
-            const currentPrice = prices[a.id].toFixed(2);
-            const totalInvested = (costQty * costPrice).toFixed(2);
-            const diff = (currentPrice - costPrice).toFixed(2);
+        const entries = getCostEntries();
+
+        entries.forEach(entry => {
+            const asset = possibleAssets.find(a => a.id === entry.asset);
+            const currentPrice = prices[entry.asset].toFixed(2);
+            const totalInvested = (entry.qty * entry.price).toFixed(2);
+            const diff = (currentPrice - entry.price).toFixed(2);
             const diffClass = diff > 0 ? 'profit-loss-positive' : (diff < 0 ? 'profit-loss-negative' : '');
+
+            const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${a.label}</td>
-                <td><input type="number" class="cost-qty" value="${costQty > 0 ? costQty : ''}" 
-                    onchange="updateCostRow('${a.id}')" step="0.01" style="width: 60px;"></td>
-                <td><input type="number" class="cost-price" value="${costPrice > 0 ? costPrice : ''}" 
-                    onchange="updateCostRow('${a.id}')" step="0.01" style="width: 80px;"></td>
+                <td>${asset.label}</td>
+                <td>${entry.qty}</td>
+                <td>${entry.price.toFixed(2)}</td>
                 <td>${totalInvested}</td>
                 <td>${currentPrice}</td>
                 <td class="${diffClass}">${diff > 0 ? '+' : ''}${diff}</td>
+                <td><button class="btn-delete" onclick="deleteSingleCostEntry(${entry.id})">${entry.date}</button></td>
             `;
             tbody.appendChild(row);
         });
     }
 
-    function updateCostRow(assetId) {
-        const row = document.querySelector(`#cost-table tr[data-id="${assetId}"]`);
-        const qty = parseFloat(row.querySelector('.cost-qty').value) || 0;
-        const price = parseFloat(row.querySelector('.cost-price').value) || 0;
-        localStorage.setItem('cost_qty_' + assetId, qty);
-        localStorage.setItem('cost_price_' + assetId, price);
-        localStorage.setItem('val_' + assetId, qty);  // Portföy adetine eksiz
-        updateCostRowDisplay(assetId);
-    }
+    function deleteSingleCostEntry(entryId) {
+        const entries = getCostEntries();
+        const entry = entries.find(e => e.id === entryId);
 
-    function updateCostRowDisplay(assetId) {
-        const row = document.querySelector(`#cost-table tr[data-id="${assetId}"]`);
-        if (!row) return;
-        const costQty = parseFloat(localStorage.getItem('cost_qty_' + assetId)) || 0;
-        const costPrice = parseFloat(localStorage.getItem('cost_price_' + assetId)) || 0;
-        const currentPrice = prices[assetId].toFixed(2);
-        const totalInvested = (costQty * costPrice).toFixed(2);
-        const diff = (currentPrice - costPrice).toFixed(2);
-        const diffClass = diff > 0 ? 'profit-loss-positive' : (diff < 0 ? 'profit-loss-negative' : '');
-        
-        row.cells[3].innerText = totalInvested;
-        row.cells[4].innerText = currentPrice;
-        row.cells[5].className = diffClass;
-        row.cells[5].innerText = (diff > 0 ? '+' : '') + diff;
-    }
+        if (!entry) return;
 
-    function deleteCostEntry(assetId) {
-        if (confirm('Bu varlığın alış bilgisini silmek istediğinize emin misiniz?')) {
-            localStorage.removeItem('cost_qty_' + assetId);
-            localStorage.removeItem('cost_price_' + assetId);
-            localStorage.removeItem('val_' + assetId);  // Portföy adetinden de sil
+        if (confirm(`${entry.date} tarihli işlemi silmek istediğinize emin misiniz?`)) {
+            // Portföy adetinden çıkar
+            const currentPortQty = parseFloat(localStorage.getItem('val_' + entry.asset)) || 0;
+            localStorage.setItem('val_' + entry.asset, Math.max(0, currentPortQty - entry.qty));
+
+            // İşlemi listeden sil
+            const newEntries = entries.filter(e => e.id !== entryId);
+            saveCostEntries(newEntries);
+
             buildCostTable();
-            renderTable();  // Portföy tabını güncelle
+            renderTable();
             renderPnlReport();
         }
     }
@@ -229,36 +288,32 @@
     function renderPnlReport() {
         const tbody = document.getElementById('pnl-table');
         tbody.innerHTML = '';
+        const entries = getCostEntries();
         let totalInvested = 0, totalValue = 0;
 
-        possibleAssets.forEach(a => {
-            const costQty = parseFloat(localStorage.getItem('cost_qty_' + a.id)) || 0;
-            const costPrice = parseFloat(localStorage.getItem('cost_price_' + a.id)) || 0;
-            const currentPrice = prices[a.id];
+        entries.forEach(entry => {
+            const asset = possibleAssets.find(a => a.id === entry.asset);
+            const currentPrice = prices[entry.asset];
+            const invested = entry.qty * entry.price;
+            const currentVal = entry.qty * currentPrice;
+            const pnl = currentVal - invested;
+            const pnlPercent = ((pnl / invested) * 100).toFixed(2);
+            const pnlClass = pnl > 0 ? 'profit-loss-positive' : (pnl < 0 ? 'profit-loss-negative' : '');
 
-            if (costQty > 0 && costPrice > 0) {
-                const invested = costQty * costPrice;
-                const currentVal = costQty * currentPrice;
-                const pnl = currentVal - invested;
-                const pnlPercent = ((pnl / invested) * 100).toFixed(2);
-                const pnlClass = pnl > 0 ? 'profit-loss-positive' : (pnl < 0 ? 'profit-loss-negative' : '');
+            totalInvested += invested;
+            totalValue += currentVal;
 
-                totalInvested += invested;
-                totalValue += currentVal;
-
-                const row = document.createElement('tr');
-                row.setAttribute('data-id', a.id);
-                row.innerHTML = `
-                    <td>${a.label}</td>
-                    <td>${costQty}</td>
-                    <td>${costPrice.toFixed(2)}</td>
-                    <td>${currentPrice.toFixed(2)}</td>
-                    <td class="${pnlClass}">${pnl > 0 ? '+' : ''}${pnl.toFixed(2)}</td>
-                    <td class="${pnlClass}">${pnlPercent > 0 ? '+' : ''}${pnlPercent}%</td>
-                    <td><button class="btn-delete" onclick="deleteCostEntry('${a.id}')">🗑️</button></td>
-                `;
-                tbody.appendChild(row);
-            }
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${asset.label}</td>
+                <td>${entry.qty}</td>
+                <td>${entry.price.toFixed(2)}</td>
+                <td>${currentPrice.toFixed(2)}</td>
+                <td class="${pnlClass}">${pnl > 0 ? '+' : ''}${pnl.toFixed(2)}</td>
+                <td class="${pnlClass}">${pnlPercent > 0 ? '+' : ''}${pnlPercent}%</td>
+                <td><span style="color: #999; font-size: 0.8em;">${entry.date}</span></td>
+            `;
+            tbody.appendChild(row);
         });
 
         const totalPnl = totalValue - totalInvested;
@@ -335,17 +390,16 @@
     }
 
     function exportPortfolio() {
-        const data = {};
+        const data = {
+            portfolio: {},
+            cost_entries: getCostEntries()
+        };
         possibleAssets.forEach(a => {
             const qty = localStorage.getItem('val_'+a.id);
             const sel = localStorage.getItem('sel_'+a.id);
-            const costQty = localStorage.getItem('cost_qty_'+a.id);
-            const costPrice = localStorage.getItem('cost_price_'+a.id);
-            data[a.id] = { 
+            data.portfolio[a.id] = { 
                 qty: qty || 0, 
-                selected: sel === 'true',
-                cost_qty: costQty || 0,
-                cost_price: costPrice || 0
+                selected: sel === 'true'
             };
         });
         const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
@@ -364,19 +418,26 @@
         reader.onload = e => {
             try {
                 const data = JSON.parse(e.target.result);
-                Object.keys(data).forEach(id => {
-                    if(data[id].qty !== undefined) localStorage.setItem('val_'+id, data[id].qty);
-                    if(data[id].selected !== undefined) localStorage.setItem('sel_'+id, data[id].selected);
-                    if(data[id].cost_qty !== undefined) localStorage.setItem('cost_qty_'+id, data[id].cost_qty);
-                    if(data[id].cost_price !== undefined) localStorage.setItem('cost_price_'+id, data[id].cost_price);
-                });
+                // Portfolio adedlerini geri yükle
+                if (data.portfolio) {
+                    Object.keys(data.portfolio).forEach(id => {
+                        if(data.portfolio[id].qty !== undefined) localStorage.setItem('val_'+id, data.portfolio[id].qty);
+                        if(data.portfolio[id].selected !== undefined) localStorage.setItem('sel_'+id, data.portfolio[id].selected);
+                    });
+                }
+                // Cost entries'i geri yükle
+                if (data.cost_entries) {
+                    saveCostEntries(data.cost_entries);
+                }
                 possibleAssets.forEach(a => {
                     const saved = localStorage.getItem('sel_'+a.id);
                     if(saved !== null) selected[a.id] = saved === 'true';
                 });
                 buildAssetSelector();
                 renderTable();
+                buildCostTable();
                 calculate();
+                renderPnlReport();
                 alert('✅ İçe aktarım tamamlandı');
             } catch(err) {
                 alert('❌ Hata: ' + err.message);
@@ -429,7 +490,9 @@
             if(saved !== null) selected[a.id] = saved === 'true';
         });
         buildAssetSelector();
+        buildCostAssetSelect();
         renderTable();
+        buildCostTable();
         getLivePrices();
     };
 
