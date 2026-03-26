@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyC2Q6nqbY7DCVt1JMWWeMIRKJYn5hmk71w",
@@ -18,67 +18,82 @@ const auth = getAuth(app);
 const database = getDatabase(app);
 
 let currentUser = null;
+let isSavingFromWeb = false;
 
-// Auth durumunu kontrol et
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
         console.log("Giriş yapılan: ", user.email);
-        // Page tamamen yüklendikten sonra Firebase verilerini yükle
-        document.addEventListener('DOMContentLoaded', loadUserData);
+        startRealtimeListener();
     } else {
-        // Giriş yapılmamışsa login.html'e yönlendir
         if (!window.location.pathname.includes('login.html')) {
             window.location.href = 'login.html';
         }
     }
 });
 
-// Kullanıcı verilerini Firebase'den yükle
-async function loadUserData() {
-    if (!currentUser) return;
-    
-    try {
-        const userRef = ref(database, 'users/' + currentUser.uid);
-        const snapshot = await get(userRef);
-        
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            // localStorage'a Firebase verilerini yükle (page'de kullanabilsin)
-            for (let key in data) {
-                localStorage.setItem(key, JSON.stringify(data[key]));
-            }
-        }
-    } catch (error) {
-        console.error('Veri yükleme hatası:', error);
-    }
+function isValidFirebaseKey(key) {
+    if (key.startsWith('firebase:') || key.startsWith('@firebase')) return false;
+    if (/[.#$\/\[\]]/.test(key)) return false;
+    return true;
 }
 
-// Kullanıcı verilerini Firebase'e kaydet
+function startRealtimeListener() {
+    if (!currentUser) return;
+
+    const userRef = ref(database, 'users/' + currentUser.uid);
+
+    onValue(userRef, (snapshot) => {
+        if (isSavingFromWeb) return;
+
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            console.log('Firebase verisi geldi, keyler:', Object.keys(data));
+
+            for (let key in data) {
+                const value = data[key];
+                if (typeof value === 'object' && value !== null) {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } else {
+                    localStorage.setItem(key, value);
+                }
+            }
+
+            if (typeof window.refreshUI === 'function') {
+                window.refreshUI();
+            }
+        }
+    });
+}
+
 window.saveToFirebase = async function() {
     if (!currentUser) return;
-    
+
     const userData = {};
-    
-    // localStorage'daki tüm veriyi Firebase'e kaydet
+
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
+        if (!isValidFirebaseKey(key)) continue;
+
+        const raw = localStorage.getItem(key);
         try {
-            userData[key] = JSON.parse(localStorage.getItem(key));
+            userData[key] = JSON.parse(raw);
         } catch {
-            userData[key] = localStorage.getItem(key);
+            userData[key] = raw;
         }
     }
-    
+
     try {
+        isSavingFromWeb = true;
         await set(ref(database, 'users/' + currentUser.uid), userData);
-        console.log('Firebase\'e kaydedildi');
+        console.log("Firebase'e kaydedildi");
     } catch (error) {
         console.error('Kaydetme hatası:', error);
+    } finally {
+        setTimeout(() => { isSavingFromWeb = false; }, 500);
     }
 };
 
-// Logout
 window.logout = function() {
     if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
         signOut(auth).then(() => {
@@ -90,14 +105,6 @@ window.logout = function() {
     }
 };
 
-// Kullanıcı bilgisini göster
 window.getCurrentUserEmail = function() {
     return currentUser ? currentUser.email : 'Bilinmiyor';
 };
-
-// Her 10 saniyede bir Firebase'e auto-save
-setInterval(() => {
-    if (currentUser) {
-        saveToFirebase();
-    }
-}, 10000);

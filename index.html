@@ -498,6 +498,21 @@
         });
     }
 
+    // ✅ Mobilden veya başka oturumdan gelen Firebase değişikliklerini UI'a yansıt
+    window.refreshUI = function() {
+        // Seçili varlıkları güncelle
+        possibleAssets.forEach(a => {
+            const saved = localStorage.getItem('sel_' + a.id);
+            if (saved !== null) selected[a.id] = saved === 'true';
+        });
+        // Tabloları ve hesaplamaları yenile
+        buildAssetSelector();
+        renderTable();
+        buildCostTable();
+        renderPnlReport();
+        calculate();
+    };
+
     window.onload = () => {
         // Kullanıcı emailini göster
         const emailElement = document.getElementById('user-email');
