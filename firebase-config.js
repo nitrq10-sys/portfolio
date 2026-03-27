@@ -3,14 +3,14 @@ import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/fi
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyC2Q6nqbY7DCVt1JMWWeMIRKJYn5hmk71w",
-    authDomain: "portfolio-app-4ace0.firebaseapp.com",
-    databaseURL: "https://portfolio-app-4ace0-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "portfolio-app-4ace0",
-    storageBucket: "portfolio-app-4ace0.firebasestorage.app",
-    messagingSenderId: "244537001992",
-    appId: "1:244537001992:web:db4133c24cd7bf365ce9bd",
-    measurementId: "G-1P1YED1DFZ"
+    apiKey: "%VITE_FIREBASE_API_KEY%",
+    authDomain: "%VITE_FIREBASE_AUTH_DOMAIN%",
+    databaseURL: "%VITE_FIREBASE_DATABASE_URL%",
+    projectId: "%VITE_FIREBASE_PROJECT_ID%",
+    storageBucket: "%VITE_FIREBASE_STORAGE_BUCKET%",
+    messagingSenderId: "%VITE_FIREBASE_MESSAGING_SENDER_ID%",
+    appId: "%VITE_FIREBASE_APP_ID%",
+    measurementId: "%VITE_FIREBASE_MEASUREMENT_ID%"
 };
 
 const app = initializeApp(firebaseConfig);
